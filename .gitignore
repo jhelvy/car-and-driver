@@ -1,5 +1,6 @@
 .Rproj.user/
 .Rhistory
+.DS_Store
 webpages/
 car-and-driver-scraper.R
 model-identifier.R
