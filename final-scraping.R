@@ -1,6 +1,8 @@
 library(tidyverse)
 library(here)
 library(rvest)
+library(jsonlite)
+library(readr)
 
 ################################################################################
                             #NEW Work below
@@ -75,14 +77,15 @@ for(i in webTracker) {
     
 
 
-write.csv(MainData, "car_data.csv", row.names = FALSE)
+#write.csv(MainData, "car_data.csv", row.names = FALSE)
+#
+#Main1 <- MainData
+#
+#Main1[] <- lapply(Main1, as.character)
+#
+#write.csv(Main1, "MainData.csv", row.names = FALSE)
 
 
-
-MainData1 <- bind_rows(MainData)
-
-# Write the data frame to a CSV file
-write.csv(MainData1, "car_data.csv", row.names = FALSE)
 
 
 
