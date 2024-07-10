@@ -1,3 +1,8 @@
+#NOTE IF EDITING IN THE FUTURE
+
+#MUST INSTALL SELENIUM AND HAVE CHROMEDRIVER IN YOUR BIN FOLDER
+#CHECK XPATHING ON carsanddriver.com
+
 from time import time
 from time import sleep
 import csv
@@ -7,7 +12,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -15,47 +20,52 @@ pp = pprint.PrettyPrinter(indent=4)
 
 BASE_URL = "https://www.caranddriver.com"
 
+
+#I have no idea what options is doing here.
 options = Options()
 options.add_argument("--no-sandbox")
 options.add_argument("start-maximized")
 options.add_experimental_option("detach", True)
 options.add_experimental_option("excludeSwitches", ["enable-logging"])
-# path = Service("/usr/lib/chromium-browser/chromedriver")
-path = Service("C:/Users/benja/AppData/Local/Programs/Python/Python311/Lib/site-packages/selenium/chromedriver_win32/chromedriver.exe")
-# driver = webdriver.Chrome(service=path, options=options)
-# driver.get(BASE_URL)
-# wait = WebDriverWait(driver, 5)
 
+#Pathing is based on your chromedrievr
+path = Service("/usr/local/bin/chromedriver")  # Updated path for Mac
+driver = webdriver.Chrome(service=path, options=options)
+driver.get(BASE_URL)
+wait = WebDriverWait(driver, 5)
 
+#Bro what is this?
+#Open Menu selects "Research Cars" at the top of the webpage
 def openMenu():
-    menu = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="__next"]/div[1]/nav/div[1]/div[1]/button')))
+    menu = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="__next"]/nav/div/div[1]/button')))
     menu.click()
 
 def getMakes():
-    make_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[2]/select')))
+    make_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="P0-3"]/div[2]/select')))
     make_field.click()
-    makes = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[2]/select/option[1]')))
-    makes = driver.find_elements(By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[2]/select/option')
-#     for make in range(len(makes)):
-#         makes[make] = makes[make].text
-    makes = makes[1:]
-    make_field.click()
-    return makes
+    makes = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="P0-3"]/div[2]/select/option')))
+    makes_text = [make.text for make in makes[1:]]  # Exclude the first element which is usually a placeholder or header
+    make_field.click()  # Click again to close the dropdown if needed
+    return makes_text
 
 def getModels(make_index=0):
-    makes = getMakes()[make_index]
-    make_name = [makes.text]
-    makes.click()
-    model_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[3]/select')))
+    makes = getMakes()
+    make_name = makes[make_index]
+    
+    make_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="P0-3"]/div[3]/select')))
+    make_field.click()
+    make_option = makes[make_index + 1]  # Adjust for proper indexing
+    make_option.click()
+    
+    model_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="P0-3"]/div[3]/select')))
     model_field.click()
-    models = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[3]/select/option[1]')))
-    models = driver.find_elements(By.XPATH, '//*[@id="modal-root"]/div[2]/div/div[3]/select/option')
-    for model in range(len(models)):
-        models[model] = models[model].text
-    del models[0]
-    models_full = make_name + models
-    return models_full
+    models = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="P0-3"]/div[3]/select/option')))
+    models_text = [model.text for model in models[1:]]  # Exclude the first element which is usually a placeholder or header
+    model_field.click()  # Click again to close the dropdown if needed
+    
+    return [make_name] + models_text
 
+#I understand what this is doing, this just loops through each make and model and adds it to the csv
 def getAllModels():
     makes = getMakes()
     for i in range(len(makes)):
@@ -69,6 +79,7 @@ def getAllModels():
                 writer.writerow([make, models_local[i]])
     return
 
+#This creats the rest of the csv/formatting
 def createModelUrl():
     model_url_strings = []
 
@@ -129,53 +140,33 @@ def createSpecUrl():
             writer.writerow(model_url_strings[i])
     return
 
-def getYearsAndStyles():
-    wait = WebDriverWait(driver, 3)
+def getYears():
     with open('model-year-urls.csv', 'w', newline='\r\n') as to_write:
         writer = csv.writer(to_write)
-        writer.writerow(['make', 'model', 'year', 'style', 'style_string'])
+        writer.writerow(['make', 'model', 'year'])
+    
     with open('model-urls.csv', 'r', newline='\r\n') as file:
         reader = csv.reader(file)
-        urls = list(reader)
-        del urls[0]
-        print(BASE_URL + '/' + urls[1][2])
-        for row in urls:
-            text_years = []
+        next(reader)  # Skip header
+        for row in reader:
             try:
                 driver.get(BASE_URL + '/' + row[2])
-                year_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="yearSelect"]')))
+                year_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="P0-3"]/div[4]/select')))
                 year_field.click()
-                years = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="yearSelect"]/option[1]')))
-                years = driver.find_elements(By.XPATH, '//*[@id="yearSelect"]/option')
-                del years[0]
-                for year in range(len(years)):
-                    text_years.append(years[year].text)
-                    this_year = years[year].text
-                    print(this_year)
-                    years[year].click()
-                    style_strings = []
-                    try:
-                        style_field = wait.until(EC.element_to_be_clickable((By.XPATH, '//*["@id=styleSelect"]')))
-                        style_field.click()
-                        styles = wait.until(EC.element_to_be_clickable((By.XPATH, '//*["@id=styleSelect"]/option[1]')))
-                        styles = driver.find_elements(By.XPATH, '//*[@id="styleSelect"]/option')
-                        del styles[0]
-                        text_styles = []
-                        for style in range(len(styles)):
-                            text_styles.append(styles[style].text)
-                            style_value = styles[style].get_attribute("value")
-                            print("style_value: " + style_value)
-                            style_strings.append(style_value)
-                        print(style_strings)
-                        with open('model-year-urls.csv', 'a', newline='\r\n') as to_write:
-                            writer = csv.writer(to_write)
-                            for i in range(len(style_strings)):
-                                writer.writerow([row[0], row[1], this_year, text_styles[i], style_strings[i]])
-                    except TimeoutException:
-                        print("No styles")
-                print(text_years)
+                years = wait.until(EC.presence_of_all_elements_located((By.XPATH, '//*[@id="P0-3"]/div[4]/select/option')))
+                for year in years[1:]:  # Exclude the first element
+                    year_text = year.text
+                    year.click()
+                    
+                        
+                        # Now write to CSV or do further processing
+                    with open('model-year-urls.csv', 'a', newline='\r\n') as to_write:
+                        writer = csv.writer(to_write)
+                        writer.writerow([row[0], row[1], year_text])
             except TimeoutException:
-                print("No specs")
+                print("Timeout while getting years and styles.")
+                
+                
 
 def createStyleUrl():
     style_url_strings = []
@@ -275,17 +266,17 @@ def createTrimUrl():
 
 def main():
 
-#     with open('models.csv', 'w', newline='\r\n') as file:
-#         writer = csv.writer(file)
-#         writer.writerow(['make', 'model'])
-#
-#     openMenu()
-#     getAllModels()
-#     createSpecUrl()
-#     getYearsAndStyles()
-#     createStyleUrl()
-#     getTrims()
-#     createTrimUrl()
+    with open('models.csv', 'w', newline='\r\n') as file:
+        writer = csv.writer(file)
+        writer.writerow(['make', 'model'])
+
+    openMenu()
+    getAllModels()
+#    createSpecUrl()
+#    getYearsAndStyles()
+#    createStyleUrl()
+#    getTrims()
+#    createTrimUrl()
     driver.close()
 
 
