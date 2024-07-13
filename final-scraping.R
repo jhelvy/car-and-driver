@@ -14,16 +14,23 @@ webTracker <- list.files("./webpages")
 #For Loop
 MainData <- NULL
 
+
 for(i in webTracker) {
     
-    car_data <- data.frame(CarName = character(), stringsAsFactors = FALSE)
+    car_data <- data.frame(CarName = character(), MSRP = character(), stringsAsFactors = FALSE)
+    
     currentPage <- read_html(paste0("./webpages/", i ,collapse = ""))
     
     #Getting the Full Name
     car_name <- currentPage %>% 
         html_element(".css-1an3ngc.ezgaj230") %>%
         html_text() 
-    car_data <- car_data %>% add_row(CarName = car_name)
+    
+    #Getting Car MSRP
+    car_msrp <- currentPage %>% 
+        html_element(".css-48aaf9.e1l3raf11") %>%
+        html_text() 
+    car_data <- car_data %>% add_row(CarName = car_name, MSRP = car_msrp)
     
     #Getting all the specs
     specs <- currentPage %>% 
@@ -79,11 +86,11 @@ for(i in webTracker) {
 
 #write.csv(MainData, "car_data.csv", row.names = FALSE)
 #
-#Main1 <- MainData
+Main1 <- MainData
 #
-#Main1[] <- lapply(Main1, as.character)
+Main1[] <- lapply(Main1, as.character)
 #
-#write.csv(Main1, "MainData.csv", row.names = FALSE)
+write.csv(Main1, "MainData.csv", row.names = FALSE)
 
 
 
