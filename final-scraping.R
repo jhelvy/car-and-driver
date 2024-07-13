@@ -92,7 +92,7 @@ Main1[] <- lapply(Main1, as.character)
 #
 write.csv(Main1, "MainData.csv", row.names = FALSE)
 
-
+arrow::write_parquet(Main1, "data.parquet")
 
 
 
