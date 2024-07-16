@@ -6,31 +6,100 @@ library(readr)
 
 ################################################################################
                             #NEW Work below
-#Init Work
-webTracker <- list.files("./webpages")
+
 
 ###########
 
+oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
+View(oldData)
 #For Loop
-MainData <- NULL
+#MainData <- NULL
+
+webTracker <- list.files("./webpages")
+webTracker <- webTracker[30000:length(webTracker)]
+
+
+bind_rows_safely <- function(df1, df2) {
+    # Identify columns in df1 not in df2
+    cols_missing_in_df2 <- setdiff(names(df1), names(df2))
+    # Identify columns in df2 not in df1
+    cols_missing_in_df1 <- setdiff(names(df2), names(df1))
+    
+    # Add missing columns to df2
+    for (col in cols_missing_in_df2) {
+        df2[[col]] <- NA
+    }
+    
+    # Add missing columns to df1
+    for (col in cols_missing_in_df1) {
+        df1[[col]] <- NA
+    }
+    
+    # Reorder columns to match df1
+    df2 <- df2[, names(df1)]
+    
+    # Bind rows together
+    bind_rows(df1, df2)
+}
+
+
+
 
 
 for(i in webTracker) {
     
-    car_data <- data.frame(CarName = character(), MSRP = character(), stringsAsFactors = FALSE)
+    car_data <- data.frame(Make = character(), 
+                           Model = character(),
+                           Style = character(),
+                           Year = character(),
+                           MSRP = character(),
+                           Trim = character(),
+                           URL = character()
+                           )
     
     currentPage <- read_html(paste0("./webpages/", i ,collapse = ""))
     
     #Getting the Full Name
-    car_name <- currentPage %>% 
-        html_element(".css-1an3ngc.ezgaj230") %>%
-        html_text() 
+    
+    mmS <- car_name <- currentPage %>%
+        html_nodes(xpath = '//*[@class="e9l0kn00 css-2t95om epl65fo4"]') %>%
+        html_text()
+    
+    make <- mmS[2]
+    
+    model <- mmS[3]
+    
+    style <- currentPage %>% 
+        html_element(xpath = '//*[@id="styleSelect"]/option[2]') %>% 
+        html_text()
+    
+    year <- currentPage %>% 
+        html_elements('.css-1an3ngc.ezgaj230') %>% 
+        html_text()
+    year <- substring(year,1,4)
     
     #Getting Car MSRP
     car_msrp <- currentPage %>% 
         html_element(".css-48aaf9.e1l3raf11") %>%
         html_text() 
-    car_data <- car_data %>% add_row(CarName = car_name, MSRP = car_msrp)
+    
+    trim <- substring(i,1, (str_length(i)-5))
+        
+    url <- NA
+    
+    curb <- currentPage %>% 
+        html_element(".css-48aaf9.e1l3raf11") %>%
+        html_text() 
+    
+    
+    car_data <- car_data %>% add_row(Make = make, 
+                                     Model = model,
+                                     Style = style,
+                                     Year = year,
+                                     MSRP = car_msrp,
+                                     Trim = trim,
+                                     URL = url
+                                     )
     
     #Getting all the specs
     specs <- currentPage %>% 
@@ -43,8 +112,8 @@ for(i in webTracker) {
     
     
     #Trimming the front and end \n
-    for(i in 1:length(specs)) {
-        specs[i] <- str_sub(specs[i], 2, str_length(specs[i]) - 1)
+    for(j in 1:length(specs)) {
+        specs[j] <- str_sub(specs[j], 2, str_length(specs[j]) - 1)
     }
     
     
@@ -66,36 +135,39 @@ for(i in webTracker) {
     names(specs_df) <- names
     car_data <- cbind(car_data, specs_df)
     
-    #You need this because some columns are non-existant so we just skip
-    if(ncol(car_data) < 50) {
-        next()
-    }
-    
-    # Append car_data to MainData, ensuring column order consistency
     if (is.null(MainData)) {
         MainData <- car_data
     } else {
-        cols_to_select <- intersect(names(MainData), names(car_data))
-        car_data <- car_data[, cols_to_select]
-        MainData <- MainData[, cols_to_select]
-        MainData <- rbind(MainData, car_data[, names(MainData)])
+        MainData <- bind_rows_safely(MainData, car_data)
     }
 }
-    
+   
+Main1 <- MainData
+ 
+Main1$Trim <- as.character(Main1$Trim)
+oldData$trim_value <- as.character(oldData$trim_value)
+
+# Perform a left join to add the URL from oldData to Main1 based on Trim
+Main1 <- Main1 %>%
+    left_join(oldData %>% select(trim_value, full_url), by = c("Trim" = "trim_value"))
+
+Main1 <- Main1 %>% select(-URL)
+
+Main1 <- Main1 %>%
+    relocate(full_url, .after = 6)
 
 
 #write.csv(MainData, "car_data.csv", row.names = FALSE)
 #
-Main1 <- MainData
-#
+##
 Main1[] <- lapply(Main1, as.character)
-#
+##
 write.csv(Main1, "MainData.csv", row.names = FALSE)
-
-arrow::write_parquet(Main1, "data.parquet")
-
-
-
+#
+#arrow::write_parquet(Main1, "data.parquet")
+#
+#old <- read_csv(paste0(here::here(), "/result_csv_files/","final_df_v1.csv", collaspe = ""))
+#
 
 
 
