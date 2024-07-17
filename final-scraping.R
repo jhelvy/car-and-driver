@@ -11,12 +11,13 @@ library(readr)
 ###########
 
 oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
-View(oldData)
+#View(oldData)
 #For Loop
-#MainData <- NULL
+MainData <- NULL
 
 webTracker <- list.files("./webpages")
-webTracker <- webTracker[30000:length(webTracker)]
+
+#webTracker <- webTracker[30000:length(webTracker)]
 
 
 bind_rows_safely <- function(df1, df2) {
@@ -54,6 +55,7 @@ for(i in webTracker) {
                            Year = character(),
                            MSRP = character(),
                            Trim = character(),
+                           Trim_Number = character(),
                            URL = character()
                            )
     
@@ -61,7 +63,7 @@ for(i in webTracker) {
     
     #Getting the Full Name
     
-    mmS <- car_name <- currentPage %>%
+    mmS <- currentPage %>%
         html_nodes(xpath = '//*[@class="e9l0kn00 css-2t95om epl65fo4"]') %>%
         html_text()
     
@@ -83,7 +85,13 @@ for(i in webTracker) {
         html_element(".css-48aaf9.e1l3raf11") %>%
         html_text() 
     
-    trim <- substring(i,1, (str_length(i)-5))
+    trim_no <- substring(i,1, (str_length(i)-5))
+    
+    trim <- currentPage %>% 
+        html_element(xpath = '//*[@id="main-content"]/div[2]/div[3]/div[1]/div[2]') %>% 
+        html_text() %>%  
+        sub(" Package Includes$", "",.)
+    
         
     url <- NA
     
@@ -98,6 +106,7 @@ for(i in webTracker) {
                                      Year = year,
                                      MSRP = car_msrp,
                                      Trim = trim,
+                                     Trim_Number = trim_no,
                                      URL = url
                                      )
     
@@ -144,12 +153,12 @@ for(i in webTracker) {
    
 Main1 <- MainData
  
-Main1$Trim <- as.character(Main1$Trim)
+Main1$Trim_Number <- as.character(Main1$Trim_Number)
 oldData$trim_value <- as.character(oldData$trim_value)
 
 # Perform a left join to add the URL from oldData to Main1 based on Trim
 Main1 <- Main1 %>%
-    left_join(oldData %>% select(trim_value, full_url), by = c("Trim" = "trim_value"))
+    left_join(oldData %>% select(trim_value, full_url), by = c("Trim_Number" = "trim_value"))
 
 Main1 <- Main1 %>% select(-URL)
 
@@ -164,11 +173,11 @@ Main1[] <- lapply(Main1, as.character)
 ##
 write.csv(Main1, "MainData.csv", row.names = FALSE)
 #
-#arrow::write_parquet(Main1, "data.parquet")
+arrow::write_parquet(Main1, "data.parquet")
 #
 #old <- read_csv(paste0(here::here(), "/result_csv_files/","final_df_v1.csv", collaspe = ""))
 #
-
+#new <- read_csv("MainData.csv")
 
 
    
