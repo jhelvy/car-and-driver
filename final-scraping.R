@@ -10,14 +10,19 @@ library(readr)
 
 ###########
 
-oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
+#oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
 #View(oldData)
 #For Loop
-MainData <- NULL
+Main <- NULL
 
-webTracker <- list.files("./webpages")
+#webTracker <- list.files("./webpages")
 
 #webTracker <- webTracker[30000:length(webTracker)]
+
+webTracker <- read_excel("addUrl.xlsx")
+
+webTracker <- webTracker$full_url
+
 
 
 bind_rows_safely <- function(df1, df2) {
@@ -45,8 +50,6 @@ bind_rows_safely <- function(df1, df2) {
 
 
 
-
-
 for(i in webTracker) {
     
     car_data <- data.frame(Make = character(), 
@@ -59,7 +62,7 @@ for(i in webTracker) {
                            URL = character()
                            )
     
-    currentPage <- read_html(paste0("./webpages/", i ,collapse = ""))
+    currentPage <- read_html(i)
     
     #Getting the Full Name
     
@@ -93,7 +96,7 @@ for(i in webTracker) {
         sub(" Package Includes$", "",.)
     
         
-    url <- NA
+    url <- i
     
     curb <- currentPage %>% 
         html_element(".css-48aaf9.e1l3raf11") %>%
@@ -144,36 +147,36 @@ for(i in webTracker) {
     names(specs_df) <- names
     car_data <- cbind(car_data, specs_df)
     
-    if (is.null(MainData)) {
-        MainData <- car_data
+    if (is.null(Main)) {
+        Main <- car_data
     } else {
-        MainData <- bind_rows_safely(MainData, car_data)
+        Main <- bind_rows_safely(MainData, car_data)
     }
 }
    
-Main1 <- MainData
- 
-Main1$Trim_Number <- as.character(Main1$Trim_Number)
-oldData$trim_value <- as.character(oldData$trim_value)
-
-# Perform a left join to add the URL from oldData to Main1 based on Trim
-Main1 <- Main1 %>%
-    left_join(oldData %>% select(trim_value, full_url), by = c("Trim_Number" = "trim_value"))
-
-Main1 <- Main1 %>% select(-URL)
-
-Main1 <- Main1 %>%
-    relocate(full_url, .after = 6)
-
-
-#write.csv(MainData, "car_data.csv", row.names = FALSE)
+#Main1 <- MainData
+# 
+#Main1$Trim_Number <- as.character(Main1$Trim_Number)
+#oldData$trim_value <- as.character(oldData$trim_value)
 #
-##
-Main1[] <- lapply(Main1, as.character)
-##
-write.csv(Main1, "MainData.csv", row.names = FALSE)
+## Perform a left join to add the URL from oldData to Main1 based on Trim
+#Main1 <- Main1 %>%
+#    left_join(oldData %>% select(trim_value, full_url), by = c("Trim_Number" = "trim_value"))
 #
-arrow::write_parquet(Main1, "data.parquet")
+#Main1 <- Main1 %>% select(-URL)
+#
+#Main1 <- Main1 %>%
+#    relocate(full_url, .after = 6)
+#
+#
+##write.csv(MainData, "car_data.csv", row.names = FALSE)
+##
+###
+#Main1[] <- lapply(Main1, as.character)
+###
+#write.csv(Main1, "MainData.csv", row.names = FALSE)
+##
+#arrow::write_parquet(Main1, "data.parquet")
 #
 #old <- read_csv(paste0(here::here(), "/result_csv_files/","final_df_v1.csv", collaspe = ""))
 #
