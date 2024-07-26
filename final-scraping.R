@@ -111,16 +111,9 @@ for(i in webTracker) {
                                      URL = url
                                      )
     
-    #Getting all the specs
-    specs <- currentPage %>% 
-        html_elements(".css-9dhox.etxmilo0") %>% 
-        html_text()
-    
-    
     specs_parent <- currentPage %>% 
         html_elements(".css-9dhox.etxmilo0")
     
-    # Extract the child textboxes separately
     textbox1 <- specs_parent %>% 
         html_elements("div:nth-child(1)") %>% 
         html_text()
@@ -129,62 +122,86 @@ for(i in webTracker) {
         html_elements("div:nth-child(2)") %>% 
         html_text()
     
-    #Stopped here on the splitting part, what the hell man
-    
-    
-    
-    #Create a names and values list
-    names <- list()
-    values <- list()
-    
-    specs <- strsplit(specs, "\n") #Split on the middle \n
-    
-    # Loop through the specs and split into names and values
-    for (spec in specs) {
-        name <- spec[1] # First element is the name - will be our column name
-        value <- spec[2] # Second element is the value - will be our row name
-        names <- c(names, name)
-        values <- c(values, value)
+    # Ensure equal lengths of textbox1 and textbox2
+    if (length(textbox1) != length(textbox2)) {
+        # Handle mismatched lengths, perhaps by filling with NA
+        max_length <- max(length(textbox1), length(textbox2))
+        textbox1 <- c(textbox1, rep(NA, max_length - length(textbox1)))
+        textbox2 <- c(textbox2, rep(NA, max_length - length(textbox2)))
     }
-    #Adding values, col names, and binding it to the main car_data
-    specs_df <- data.frame(t(values), stringsAsFactors = FALSE)
-    names(specs_df) <- names
+    
+    # Adding values, column names, and binding it to the main car_data
+    specs_df <- data.frame(t(textbox2), stringsAsFactors = FALSE)
+    names(specs_df) <- textbox1
     car_data <- cbind(car_data, specs_df)
     
     if (is.null(Main)) {
         Main <- car_data
     } else {
-        Main <- bind_rows_safely(MainData, car_data)
+        Main <- bind_rows_safely(Main, car_data)
     }
 }
-   
-#Main1 <- MainData
-# 
-#Main1$Trim_Number <- as.character(Main1$Trim_Number)
-#oldData$trim_value <- as.character(oldData$trim_value)
-#
-## Perform a left join to add the URL from oldData to Main1 based on Trim
-#Main1 <- Main1 %>%
-#    left_join(oldData %>% select(trim_value, full_url), by = c("Trim_Number" = "trim_value"))
-#
-#Main1 <- Main1 %>% select(-URL)
-#
-#Main1 <- Main1 %>%
-#    relocate(full_url, .after = 6)
-#
-#
-##write.csv(MainData, "car_data.csv", row.names = FALSE)
+
+
+url_data <- read_excel("addUrl.xlsx")  # Update the path to your addUrl.xlsx file
+
+url_data <- url_data %>%
+    rename(Trim_Number = trim_value, full_url = full_url) %>%
+    mutate(Trim_Number = as.character(Trim_Number))  # Ensure Trim_Number is character
+
+# Ensure Trim_Number in Main is character
+Main <- Main %>%
+    mutate(Trim_Number = as.character(Trim_Number))
+
+# Perform the left join
+Main <- Main %>%
+    left_join(url_data %>% select(Trim_Number, full_url), by = "Trim_Number")
+
+# Remove any existing URL column if it exists
+Main <- Main %>%
+    select(-URL)
+
+# Relocate full_url to the desired position
+Main <- Main %>%
+    relocate(full_url, .after = 6)
+
+
+
+#Combining
+
+MainData <- read.csv("MainData.csv")
+
+MainData <- MainData %>%
+    mutate(across(everything(), as.character))
+
+Main <- Main %>%
+    mutate(across(everything(), as.character))
+
+missing_cols_in_MainData <- setdiff(names(Main), names(MainData))
+for (col in missing_cols_in_MainData) {
+    MainData[[col]] <- NA
+}
+
+missing_cols_in_Main <- setdiff(names(MainData), names(Main))
+for (col in missing_cols_in_Main) {
+    Main[[col]] <- NA
+}
+
+MainData <- MainData[, names(Main)]
+
+CombinedData <- bind_rows(Main, MainData)
+
+#write.csv(CombinedData, "MainData.csv", row.names = FALSE)
 ##
-###
-#Main1[] <- lapply(Main1, as.character)
-###
-#write.csv(Main1, "MainData.csv", row.names = FALSE)
-##
-#arrow::write_parquet(Main1, "data.parquet")
-#
-#old <- read_csv(paste0(here::here(), "/result_csv_files/","final_df_v1.csv", collaspe = ""))
-#
-#new <- read_csv("MainData.csv")
+#arrow::write_parquet(CombinedData, "data.parquet")
+
+
+
+
+
+
+
+
 
 
    
