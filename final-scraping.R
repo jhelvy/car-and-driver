@@ -10,14 +10,17 @@ library(readr)
 
 ###########
 
-oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
+#oldData <- read_csv(paste0(here(),"/result_csv_files/final_df_v1.csv"))
 #View(oldData)
 #For Loop
-MainData <- NULL
+Main <- NULL
 
-webTracker <- list.files("./webpages")
+webTracker <- list.files("./newPages")
 
 #webTracker <- webTracker[30000:length(webTracker)]
+
+
+
 
 
 bind_rows_safely <- function(df1, df2) {
@@ -45,8 +48,6 @@ bind_rows_safely <- function(df1, df2) {
 
 
 
-
-
 for(i in webTracker) {
     
     car_data <- data.frame(Make = character(), 
@@ -59,30 +60,30 @@ for(i in webTracker) {
                            URL = character()
                            )
     
-    currentPage <- read_html(paste0("./webpages/", i ,collapse = ""))
+    currentPage <- read_html(paste0(here(),"/newPages/", i))
     
     #Getting the Full Name
     
-    mmS <- currentPage %>%
-        html_nodes(xpath = '//*[@class="e9l0kn00 css-2t95om epl65fo4"]') %>%
+    make <- currentPage %>%
+        html_nodes(xpath = '//*[@id="main-content"]/div[2]/div[1]/nav/ol/li[2]/a') %>%
         html_text()
     
-    make <- mmS[2]
-    
-    model <- mmS[3]
+    model <- currentPage %>%
+        html_nodes(xpath = '//*[@id="main-content"]/div[2]/div[1]/nav/ol/li[3]/a') %>%
+        html_text()
     
     style <- currentPage %>% 
-        html_element(xpath = '//*[@id="styleSelect"]/option[2]') %>% 
+        html_element(xpath = '//*[@id="styleSelect-wrapper"]/div/div[1]') %>% 
         html_text()
     
     year <- currentPage %>% 
-        html_elements('.css-1an3ngc.ezgaj230') %>% 
+        html_elements('.css-19lw4a6.edfupbv0') %>% 
         html_text()
     year <- substring(year,1,4)
     
     #Getting Car MSRP
     car_msrp <- currentPage %>% 
-        html_element(".css-48aaf9.e1l3raf11") %>%
+        html_element(".css-f1ylyv.e1c3m9of1") %>%
         html_text() 
     
     trim_no <- substring(i,1, (str_length(i)-5))
@@ -93,7 +94,7 @@ for(i in webTracker) {
         sub(" Package Includes$", "",.)
     
         
-    url <- NA
+    url <- NULL
     
     curb <- currentPage %>% 
         html_element(".css-48aaf9.e1l3raf11") %>%
@@ -110,74 +111,97 @@ for(i in webTracker) {
                                      URL = url
                                      )
     
-    #Getting all the specs
-    specs <- currentPage %>% 
-        html_elements(".css-iplmtj.e1oyz7g3") %>% 
-        html_elements(".css-1ajawdl.eqxeor30") %>% 
+    specs_parent <- currentPage %>% 
+        html_elements(".css-9dhox.etxmilo0")
+    
+    textbox1 <- specs_parent %>% 
+        html_elements("div:nth-child(1)") %>% 
         html_text()
     
-    #Gets rid of sections that don't have \n, this was only "special" things that the car has. This stuff contained no actual mechanical data
-    specs <- specs[grepl("\n", specs)]
+    textbox2 <- specs_parent %>% 
+        html_elements("div:nth-child(2)") %>% 
+        html_text()
     
-    
-    #Trimming the front and end \n
-    for(j in 1:length(specs)) {
-        specs[j] <- str_sub(specs[j], 2, str_length(specs[j]) - 1)
+    # Ensure equal lengths of textbox1 and textbox2
+    if (length(textbox1) != length(textbox2)) {
+        # Handle mismatched lengths, perhaps by filling with NA
+        max_length <- max(length(textbox1), length(textbox2))
+        textbox1 <- c(textbox1, rep(NA, max_length - length(textbox1)))
+        textbox2 <- c(textbox2, rep(NA, max_length - length(textbox2)))
     }
     
-    
-    #Create a names and values list
-    names <- list()
-    values <- list()
-    
-    specs <- strsplit(specs, "\n") #Split on the middle \n
-    
-    # Loop through the specs and split into names and values
-    for (spec in specs) {
-        name <- spec[1] # First element is the name - will be our column name
-        value <- spec[2] # Second element is the value - will be our row name
-        names <- c(names, name)
-        values <- c(values, value)
-    }
-    #Adding values, col names, and binding it to the main car_data
-    specs_df <- data.frame(t(values), stringsAsFactors = FALSE)
-    names(specs_df) <- names
+    # Adding values, column names, and binding it to the main car_data
+    specs_df <- data.frame(t(textbox2), stringsAsFactors = FALSE)
+    names(specs_df) <- textbox1
     car_data <- cbind(car_data, specs_df)
     
-    if (is.null(MainData)) {
-        MainData <- car_data
+    if (is.null(Main)) {
+        Main <- car_data
     } else {
-        MainData <- bind_rows_safely(MainData, car_data)
+        Main <- bind_rows_safely(Main, car_data)
     }
 }
-   
-Main1 <- MainData
- 
-Main1$Trim_Number <- as.character(Main1$Trim_Number)
-oldData$trim_value <- as.character(oldData$trim_value)
 
-# Perform a left join to add the URL from oldData to Main1 based on Trim
-Main1 <- Main1 %>%
-    left_join(oldData %>% select(trim_value, full_url), by = c("Trim_Number" = "trim_value"))
 
-Main1 <- Main1 %>% select(-URL)
+url_data <- read_excel("addUrl.xlsx")  # Update the path to your addUrl.xlsx file
 
-Main1 <- Main1 %>%
+url_data <- url_data %>%
+    rename(Trim_Number = trim_value, full_url = full_url) %>%
+    mutate(Trim_Number = as.character(Trim_Number))  # Ensure Trim_Number is character
+
+# Ensure Trim_Number in Main is character
+Main <- Main %>%
+    mutate(Trim_Number = as.character(Trim_Number))
+
+# Perform the left join
+Main <- Main %>%
+    left_join(url_data %>% select(Trim_Number, full_url), by = "Trim_Number")
+
+# Remove any existing URL column if it exists
+Main <- Main %>%
+    select(-URL)
+
+# Relocate full_url to the desired position
+Main <- Main %>%
     relocate(full_url, .after = 6)
 
 
-#write.csv(MainData, "car_data.csv", row.names = FALSE)
-#
+
+#Combining
+
+MainData <- read.csv("MainData.csv")
+
+MainData <- MainData %>%
+    mutate(across(everything(), as.character))
+
+Main <- Main %>%
+    mutate(across(everything(), as.character))
+
+missing_cols_in_MainData <- setdiff(names(Main), names(MainData))
+for (col in missing_cols_in_MainData) {
+    MainData[[col]] <- NA
+}
+
+missing_cols_in_Main <- setdiff(names(MainData), names(Main))
+for (col in missing_cols_in_Main) {
+    Main[[col]] <- NA
+}
+
+MainData <- MainData[, names(Main)]
+
+CombinedData <- bind_rows(Main, MainData)
+
+#write.csv(CombinedData, "MainData.csv", row.names = FALSE)
 ##
-Main1[] <- lapply(Main1, as.character)
-##
-write.csv(Main1, "MainData.csv", row.names = FALSE)
-#
-arrow::write_parquet(Main1, "data.parquet")
-#
-#old <- read_csv(paste0(here::here(), "/result_csv_files/","final_df_v1.csv", collaspe = ""))
-#
-#new <- read_csv("MainData.csv")
+#arrow::write_parquet(CombinedData, "data.parquet")
+
+
+
+
+
+
+
+
 
 
    
