@@ -15,13 +15,11 @@ library(readr)
 #For Loop
 Main <- NULL
 
-#webTracker <- list.files("./webpages")
+webTracker <- list.files("./newPages")
 
 #webTracker <- webTracker[30000:length(webTracker)]
 
-webTracker <- read_excel("addUrl.xlsx")
 
-webTracker <- webTracker$full_url
 
 
 
@@ -62,30 +60,30 @@ for(i in webTracker) {
                            URL = character()
                            )
     
-    currentPage <- read_html(i)
+    currentPage <- read_html(paste0(here(),"/newPages/", i))
     
     #Getting the Full Name
     
-    mmS <- currentPage %>%
-        html_nodes(xpath = '//*[@class="e9l0kn00 css-2t95om epl65fo4"]') %>%
+    make <- currentPage %>%
+        html_nodes(xpath = '//*[@id="main-content"]/div[2]/div[1]/nav/ol/li[2]/a') %>%
         html_text()
     
-    make <- mmS[2]
-    
-    model <- mmS[3]
+    model <- currentPage %>%
+        html_nodes(xpath = '//*[@id="main-content"]/div[2]/div[1]/nav/ol/li[3]/a') %>%
+        html_text()
     
     style <- currentPage %>% 
-        html_element(xpath = '//*[@id="styleSelect"]/option[2]') %>% 
+        html_element(xpath = '//*[@id="styleSelect-wrapper"]/div/div[1]') %>% 
         html_text()
     
     year <- currentPage %>% 
-        html_elements('.css-1an3ngc.ezgaj230') %>% 
+        html_elements('.css-19lw4a6.edfupbv0') %>% 
         html_text()
     year <- substring(year,1,4)
     
     #Getting Car MSRP
     car_msrp <- currentPage %>% 
-        html_element(".css-48aaf9.e1l3raf11") %>%
+        html_element(".css-f1ylyv.e1c3m9of1") %>%
         html_text() 
     
     trim_no <- substring(i,1, (str_length(i)-5))
@@ -96,7 +94,7 @@ for(i in webTracker) {
         sub(" Package Includes$", "",.)
     
         
-    url <- i
+    url <- NULL
     
     curb <- currentPage %>% 
         html_element(".css-48aaf9.e1l3raf11") %>%
@@ -115,18 +113,24 @@ for(i in webTracker) {
     
     #Getting all the specs
     specs <- currentPage %>% 
-        html_elements(".css-iplmtj.e1oyz7g3") %>% 
-        html_elements(".css-1ajawdl.eqxeor30") %>% 
+        html_elements(".css-9dhox.etxmilo0") %>% 
         html_text()
     
-    #Gets rid of sections that don't have \n, this was only "special" things that the car has. This stuff contained no actual mechanical data
-    specs <- specs[grepl("\n", specs)]
     
+    specs_parent <- currentPage %>% 
+        html_elements(".css-9dhox.etxmilo0")
     
-    #Trimming the front and end \n
-    for(j in 1:length(specs)) {
-        specs[j] <- str_sub(specs[j], 2, str_length(specs[j]) - 1)
-    }
+    # Extract the child textboxes separately
+    textbox1 <- specs_parent %>% 
+        html_elements("div:nth-child(1)") %>% 
+        html_text()
+    
+    textbox2 <- specs_parent %>% 
+        html_elements("div:nth-child(2)") %>% 
+        html_text()
+    
+    #Stopped here on the splitting part, what the hell man
+    
     
     
     #Create a names and values list
